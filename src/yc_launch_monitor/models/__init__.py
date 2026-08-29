@@ -11,6 +11,18 @@ from yc_launch_monitor.models.company import (
     build_speedrun_stable_id,
     build_stable_id,
 )
+from yc_launch_monitor.models.linkedin_signal import (
+    LINKEDIN_FEED_UPDATE_BASE_URL,
+    LINKEDIN_IN_BASE_URL,
+    SOURCE_LINKEDIN,
+    LinkedInPostStatus,
+    LinkedInSignalClassification,
+    LinkedInSignalRecord,
+    ParsedLinkedInSignal,
+    build_linkedin_author_url,
+    build_linkedin_post_url,
+    build_linkedin_stable_id,
+)
 from yc_launch_monitor.models.x_signal import (
     SOURCE_X,
     ParsedXSignal,
@@ -26,6 +38,7 @@ __all__ = [
     "SOURCE_YC_DIRECTORY",
     "SOURCE_YC_SPEEDRUN",
     "SOURCE_X",
+    "SOURCE_LINKEDIN",
     "CompanyRecord",
     "CompanyStatus",
     "ParsedCompany",
@@ -33,6 +46,10 @@ __all__ = [
     "SignalClassification",
     "XPostStatus",
     "XSignalRecord",
+    "ParsedLinkedInSignal",
+    "LinkedInSignalClassification",
+    "LinkedInPostStatus",
+    "LinkedInSignalRecord",
     "build_profile_url",
     "build_speedrun_profile_url",
     "build_speedrun_stable_id",
@@ -40,4 +57,9 @@ __all__ = [
     "build_x_author_url",
     "build_x_post_url",
     "build_x_stable_id",
+    "build_linkedin_author_url",
+    "build_linkedin_post_url",
+    "build_linkedin_stable_id",
+    "LINKEDIN_FEED_UPDATE_BASE_URL",
+    "LINKEDIN_IN_BASE_URL",
 ]

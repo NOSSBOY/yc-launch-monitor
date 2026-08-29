@@ -20,6 +20,12 @@ DEFAULT_X_SEARCH_QUERY = (
     '"Speedrun batch" OR "accepted to Speedrun") -is:retweet'
 )
 DEFAULT_X_MAX_RESULTS = 100
+DEFAULT_LINKEDIN_SEARCH_QUERY = (
+    '("got into YC" OR "accepted into YC" OR "accepted to YC" OR "YC S26" OR '
+    '"YC W27" OR "YC W26" OR "YC S25" OR "backed by Y Combinator" OR '
+    '"Speedrun batch" OR "accepted to Speedrun")'
+)
+DEFAULT_MONITOR_INTERVAL_SECONDS = 300
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +45,11 @@ class Settings:
     x_api_secret: str | None = None
     x_search_query: str = DEFAULT_X_SEARCH_QUERY
     x_max_results: int = DEFAULT_X_MAX_RESULTS
+    linkedin_access_token: str | None = None
+    linkedin_client_id: str | None = None
+    linkedin_client_secret: str | None = None
+    linkedin_search_query: str = DEFAULT_LINKEDIN_SEARCH_QUERY
+    monitor_interval_seconds: int = DEFAULT_MONITOR_INTERVAL_SECONDS
 
 
 def load_settings() -> Settings:
@@ -64,6 +75,13 @@ def load_settings() -> Settings:
         x_api_secret=_optional_env("X_API_SECRET"),
         x_search_query=os.getenv("X_SEARCH_QUERY", DEFAULT_X_SEARCH_QUERY),
         x_max_results=int(os.getenv("X_MAX_RESULTS", str(DEFAULT_X_MAX_RESULTS))),
+        linkedin_access_token=_optional_env("LINKEDIN_ACCESS_TOKEN"),
+        linkedin_client_id=_optional_env("LINKEDIN_CLIENT_ID"),
+        linkedin_client_secret=_optional_env("LINKEDIN_CLIENT_SECRET"),
+        linkedin_search_query=os.getenv("LINKEDIN_SEARCH_QUERY", DEFAULT_LINKEDIN_SEARCH_QUERY),
+        monitor_interval_seconds=int(
+            os.getenv("MONITOR_INTERVAL_SECONDS", str(DEFAULT_MONITOR_INTERVAL_SECONDS))
+        ),
     )
 
 

@@ -2,7 +2,7 @@
 
 A long-running Python monitoring bot that watches Y Combinator-related sources for early founder and launch activity, persists state across runs, and will eventually send alerts via Slack and integrate with Pond.
 
-**Status:** Step 4 — YC Directory, YC Speedrun, and X (Twitter) monitors implemented. Other sources and integrations are not built yet.
+**Status:** Step 6 — YC Directory, YC Speedrun, X (Twitter), LinkedIn monitors, and continuous scheduler implemented. Other integrations are not built yet.
 
 ## Project layout
 
@@ -12,8 +12,10 @@ src/yc_launch_monitor/
     yc_directory/            YC Directory fetch, parse, and monitor logic
     yc_speedrun/             YC Speedrun fetch, parse, and monitor logic
     x/                       X (Twitter) search, signal detection, and early matching
+    linkedin/                LinkedIn post search, signal detection, and early matching
   models/                    Shared domain models
   storage/                   SQLite persistence
+  scheduler.py               Continuous multi-source runner with failure isolation
   cli.py                     Command-line entry point
 data/                        Local persistent state (gitignored except .gitkeep)
 logs/                        Runtime logs (gitignored except .gitkeep)
@@ -49,7 +51,26 @@ cp .env.example .env     # macOS / Linux
 
 Persistent SQLite database is stored at `STATE_DB_PATH` (default: `./data/state.db`).
 
-### Running the YC Directory monitor
+### Running the continuous scheduler
+
+The scheduler runs all four monitors (YC Directory, YC Speedrun, X, and LinkedIn) sequentially in a recurring loop with failure isolation. A failure in one monitor (such as missing credentials or network issues) is logged and does not stop the other monitors or the scheduler.
+
+```bash
+# Start the recurring scheduler
+python -m yc_launch_monitor scheduler
+# or with uv:
+uv run yc-launch-monitor scheduler
+
+# Run a single cycle and exit
+python -m yc_launch_monitor scheduler --once
+
+# Override the polling interval in seconds (default: MONITOR_INTERVAL_SECONDS or 300)
+python -m yc_launch_monitor scheduler --interval 60
+```
+
+### Running individual monitors
+
+#### YC Directory monitor
 
 The YC Directory monitor reads company data backing [ycombinator.com/companies](https://www.ycombinator.com/companies), normalizes each company (`yc-dir:{slug}`, source: `yc_directory`), and stores it in SQLite.
 
@@ -67,7 +88,7 @@ On each run it prints a summary:
 YC Directory monitor summary: discovered=... new=... already_seen=... failed=...
 ```
 
-### Running the YC Speedrun monitor
+#### YC Speedrun monitor
 
 The YC Speedrun monitor monitors companies from the YC Speedrun program ([ycombinator.com/speedrun](https://www.ycombinator.com/speedrun)), normalizes each record (`yc-sr:{slug}`, source: `yc_speedrun`), and stores it in the shared SQLite database.
 
@@ -85,7 +106,7 @@ On each run it prints a summary:
 YC Speedrun monitor summary: discovered=... new=... already_seen=... failed=...
 ```
 
-### Running the X (Twitter) monitor
+#### X (Twitter) monitor
 
 The X monitor searches recent public posts for founder acceptance/launch language (e.g., "got into YC", "accepted to YC S26", "backed by Y Combinator", "Speedrun cohort"). It automatically checks whether the detected company is already officially confirmed in the local SQLite directory; unconfirmed entities are flagged as `EARLY_YC_SIGNAL`.
 
@@ -103,16 +124,40 @@ On each run it prints a summary:
 X monitor summary: discovered=... relevant_signals=... early_signals=... already_seen=... failed=...
 ```
 
+#### LinkedIn monitor
+
+The LinkedIn monitor searches founder and company posts for YC and Speedrun acceptance and launch announcements. It automatically checks whether the detected company is already officially confirmed in the local SQLite directory; unconfirmed entities are flagged as `EARLY_YC_SIGNAL`, confirmed entities as `CONFIRMED_YC`, and Speedrun announcements as `SPEEDRUN_SIGNAL`.
+
+```bash
+# Using the module entry point
+python -m yc_launch_monitor linkedin run
+
+# Or, after editable install
+yc-launch-monitor linkedin run
+```
+
+On each run it prints a summary:
+
+```
+LinkedIn monitor summary: discovered=... relevant_signals=... early_signals=... speedrun_signals=... confirmed_yc=... already_seen=... failed=...
+```
+
 ### Optional configuration
 
 Optional overrides in `.env`:
 
 ```
+# Application
+STATE_DB_PATH=./data/state.db
+LOG_LEVEL=INFO
+MONITOR_INTERVAL_SECONDS=300
+
 # YC Directory
 YC_COMPANIES_URL=https://www.ycombinator.com/companies
 YC_ALGOLIA_APP_ID=
 YC_ALGOLIA_API_KEY=
 YC_ALGOLIA_INDEX=YCCompany_production
+YC_ALGOLIA_HITS_PER_PAGE=1000
 
 # YC Speedrun
 YC_SPEEDRUN_URL=https://www.ycombinator.com/speedrun
@@ -122,6 +167,12 @@ X_BEARER_TOKEN=
 X_API_KEY=
 X_API_SECRET=
 X_SEARCH_QUERY=
+
+# LinkedIn — Required for live API queries
+LINKEDIN_CLIENT_ID=
+LINKEDIN_CLIENT_SECRET=
+LINKEDIN_ACCESS_TOKEN=
+LINKEDIN_SEARCH_QUERY=
 ```
 
 ## Running tests
@@ -136,8 +187,6 @@ uv run --extra dev pytest
 
 ## Not implemented yet
 
-- LinkedIn monitoring
 - Slack alerts
 - Pond integration
 - AI classification
-- Continuous scheduler

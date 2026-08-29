@@ -1,0 +1,44 @@
+{
+  "posts": [
+    {
+      "id": "7190000000000000001",
+      "text": "I am beyond excited to announce that we got into YC S26! We are building AgentScale, the next-gen AI workflow platform.",
+      "author_name": "Elena Rostova",
+      "author_urn": "urn:li:person:elena123",
+      "author_profile_url": "https://www.linkedin.com/in/elena-rostova",
+      "company": "AgentScale",
+      "created_at": "2026-02-10T14:00:00Z"
+    },
+    {
+      "id": "7190000000000000002",
+      "text": "Excited to share that our startup was accepted into Speedrun Winter 2024! Building HyperForge to revolutionize graphics tooling.",
+      "author_name": "Marcus Vance",
+      "author_urn": "urn:li:person:marcus456",
+      "author_profile_url": "https://www.linkedin.com/in/marcus-vance",
+      "company": "HyperForge",
+      "created_at": "2026-02-11T10:30:00Z"
+    },
+    {
+      "id": "7190000000000000003",
+      "text": "Proud to announce our latest launch in YC W26! We at Airbnb are continuing to build the best global travel experience.",
+      "author_name": "Brian Chesky",
+      "author_urn": "urn:li:person:bchesky",
+      "author_profile_url": "https://www.linkedin.com/in/bchesky",
+      "company": "Airbnb",
+      "created_at": "2026-02-12T09:15:00Z"
+    },
+    {
+      "id": "7190000000000000004",
+      "text": "Thinking about applying to YC next year. What are the best application tips and advice from alumni?",
+      "author_name": "Applicant Dave",
+      "author_urn": "urn:li:person:dave789",
+      "author_profile_url": "https://www.linkedin.com/in/dave-applicant",
+      "created_at": "2026-02-12T11:00:00Z"
+    },
+    {
+      "id": "7190000000000000005",
+      "author_name": "Incomplete Author",
+      "created_at": "2026-02-12T12:00:00Z"
+    }
+  ]
+}
