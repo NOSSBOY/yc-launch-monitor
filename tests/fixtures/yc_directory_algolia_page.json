@@ -1,0 +1,24 @@
+{
+  "hits": [
+    {
+      "objectID": "airbnb",
+      "name": "Airbnb",
+      "slug": "airbnb",
+      "one_liner": "Book accommodations around the world.",
+      "batch": "Summer 2009",
+      "website": "https://www.airbnb.com",
+      "industries": ["Consumer", "Travel"]
+    },
+    {
+      "objectID": "stripe",
+      "name": "Stripe",
+      "slug": "stripe",
+      "one_liner": "Economic infrastructure for the internet.",
+      "batch": "Summer 2010",
+      "website": "https://stripe.com",
+      "industries": ["Fintech"]
+    }
+  ],
+  "nbPages": 1,
+  "page": 0
+}

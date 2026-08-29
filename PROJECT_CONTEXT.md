@@ -6,14 +6,21 @@ Build a long-running monitoring bot that detects early Y Combinator founder and 
 
 ## Required data sources
 
-| Source        | Purpose (planned)                                      |
-|---------------|--------------------------------------------------------|
-| YC Directory  | Track companies and founders listed on YC's directory  |
-| YC Speedrun   | Monitor Speedrun cohort and related launch signals     |
-| X (Twitter)   | Watch posts and activity from founders and startups    |
-| LinkedIn      | Monitor profile and company updates from founders      |
+| Source        | Purpose (planned)                                      | Status              |
+|---------------|--------------------------------------------------------|---------------------|
+| YC Directory  | Track companies and founders listed on YC's directory  | **Implemented**     |
+| YC Speedrun   | Monitor Speedrun cohort and related launch signals     | Not implemented     |
+| X (Twitter)   | Watch posts and activity from founders and startups    | Not implemented     |
+| LinkedIn      | Monitor profile and company updates from founders      | Not implemented     |
 
-*None of these sources are connected yet.*
+### YC Directory monitor (implemented)
+
+- Fetches company records backing https://www.ycombinator.com/companies via the public Algolia search index used by that page.
+- Extracts company name, YC profile URL, description, batch, website, and industry/category when available.
+- Normalizes data into a shared company model with stable IDs (`yc-dir:{slug}`).
+- Persists companies in SQLite with `first_detected_at` and `last_seen_at`.
+- Detects `NEW` vs `ALREADY_SEEN` companies and avoids duplicate rows on reruns.
+- Modules are split across fetch (`fetcher.py`), parse (`parser.py`), orchestration (`monitor.py`), and storage (`storage/sqlite.py`).
 
 ## Required Slack integration
 
@@ -26,8 +33,9 @@ Build a long-running monitoring bot that detects early Y Combinator founder and 
 
 - Store seen entities, last-checked timestamps, and deduplication keys so the bot can run continuously without re-alerting on the same events.
 - Default local storage path: `./data/state.db` (configurable via `STATE_DB_PATH`).
+- YC Directory companies are stored in a `companies` SQLite table.
 
-*Not implemented yet.*
+*Partially implemented — YC Directory company records only.*
 
 ## Required early YC founder detection
 
@@ -51,7 +59,8 @@ Build a long-running monitoring bot that detects early Y Combinator founder and 
 
 ## Current project status
 
-**Step 1 — project initialization**
+**Step 2 — YC Directory monitor**
 
-- Repository structure, documentation, and environment templates are in place.
-- No scraping, API clients, Slack, Pond, or detection logic exists yet.
+- YC Directory fetch/parse/store pipeline is implemented with CLI support and fixture-based tests.
+- Slack, Pond, Speedrun, X, LinkedIn, AI classification, and scheduling are not implemented.
+- The overall monitoring bot is **not complete**.

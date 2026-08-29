@@ -1,2 +1,5 @@
-# YC Launch Monitor — Step 1 (project initialization)
-# No runtime dependencies required yet. Add packages here as features are implemented.
+# Runtime dependencies
+python-dotenv>=1.0.0
+
+# Development / test dependencies
+pytest>=8.0.0
