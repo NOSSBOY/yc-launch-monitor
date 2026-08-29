@@ -175,6 +175,11 @@ def _extract_items_from_dict(payload: dict[str, Any]) -> list[dict[str, Any]]:
         value = payload.get(key)
         if isinstance(value, list):
             return [item for item in value if isinstance(item, dict)]
+        if isinstance(value, dict):
+            for subkey in ("results", "items", "companies", "data"):
+                subval = value.get(subkey)
+                if isinstance(subval, list):
+                    return [item for item in subval if isinstance(item, dict)]
 
     props = payload.get("props", {})
     if isinstance(props, dict):
@@ -184,6 +189,11 @@ def _extract_items_from_dict(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 value = page_props.get(key)
                 if isinstance(value, list):
                     return [item for item in value if isinstance(item, dict)]
+                if isinstance(value, dict):
+                    for subkey in ("results", "items", "companies", "data"):
+                        subval = value.get(subkey)
+                        if isinstance(subval, list):
+                            return [item for item in subval if isinstance(item, dict)]
 
     return []
 

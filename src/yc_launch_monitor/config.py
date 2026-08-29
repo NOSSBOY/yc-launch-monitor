@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 DEFAULT_STATE_DB_PATH = Path("./data/state.db")
 DEFAULT_LOG_LEVEL = "INFO"
 DEFAULT_YC_COMPANIES_URL = "https://www.ycombinator.com/companies"
-DEFAULT_YC_SPEEDRUN_URL = "https://www.ycombinator.com/speedrun"
+DEFAULT_YC_SPEEDRUN_URL = "https://speedrun.a16z.com/companies/"
 DEFAULT_YC_ALGOLIA_INDEX = "YCCompany_production"
 DEFAULT_YC_ALGOLIA_HITS_PER_PAGE = 1000
 DEFAULT_X_SEARCH_QUERY = (

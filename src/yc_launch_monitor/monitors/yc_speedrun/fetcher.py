@@ -13,7 +13,13 @@ from yc_launch_monitor.config import Settings
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_USER_AGENT = "YCLaunchMonitor/0.1 (+https://github.com/)"
+DEFAULT_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 YCLaunchMonitor/0.1"
+)
+OFFICIAL_SPEEDRUN_API_URL = (
+    "https://speedrun-api.a16z.com/api/companies/companies/?limit=100&ordering=name"
+)
 
 
 class YCSpeedrunFetchError(RuntimeError):
@@ -28,17 +34,20 @@ class YCSpeedrunFetcher:
         self._user_agent = user_agent
 
     def fetch_text(self, url: str | None = None) -> str:
-        """Retrieve raw text / HTML from the Speedrun URL."""
+        """Retrieve raw text / HTML / JSON from the Speedrun URL."""
         target_url = url or self._settings.yc_speedrun_url
         logger.info("Fetching Speedrun data from %s", target_url)
 
         request = urllib.request.Request(
             target_url,
-            headers={"User-Agent": self._user_agent},
+            headers={
+                "User-Agent": self._user_agent,
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,application/json,*/*;q=0.8",
+            },
             method="GET",
         )
         try:
-            with urllib.request.urlopen(request, timeout=60) as response:
+            with urllib.request.urlopen(request, timeout=30) as response:
                 return response.read().decode("utf-8", errors="replace")
         except urllib.error.HTTPError as exc:
             raise YCSpeedrunFetchError(
@@ -49,12 +58,46 @@ class YCSpeedrunFetcher:
 
     def fetch_companies(self, url: str | None = None) -> list[dict[str, Any]]:
         """
-        Fetch Speedrun page and extract raw company dictionaries.
+        Fetch Speedrun page / API and extract raw company dictionaries.
 
-        Supports direct JSON endpoints, embedded __NEXT_DATA__ JSON script blocks,
-        and embedded company lists.
+        Supports the official REST API endpoint (with pagination), direct JSON endpoints,
+        embedded __NEXT_DATA__ JSON script blocks, and embedded company lists.
         """
-        content = self.fetch_text(url)
+        target_url = url or self._settings.yc_speedrun_url
+
+        # Fast path: If querying the standard speedrun.a16z.com web page, try the direct API endpoint
+        if target_url in (
+            "https://speedrun.a16z.com/companies/",
+            "https://speedrun.a16z.com/companies",
+            "https://speedrun.a16z.com/",
+            "https://speedrun.a16z.com",
+            OFFICIAL_SPEEDRUN_API_URL,
+        ):
+            try:
+                all_items: list[dict[str, Any]] = []
+                next_url: str | None = OFFICIAL_SPEEDRUN_API_URL
+                while next_url:
+                    content = self.fetch_text(next_url)
+                    data = json.loads(content)
+                    items = self._extract_items_from_dict(data)
+                    if not items:
+                        break
+                    all_items.extend(items)
+                    next_url = data.get("next") if isinstance(data, dict) else None
+                    if len(all_items) >= 2000:
+                        break
+
+                if all_items:
+                    logger.info("Retrieved %s companies from Speedrun REST API", len(all_items))
+                    return all_items
+            except Exception as exc:
+                logger.warning(
+                    "Direct Speedrun API query failed (%s); falling back to page fetch %s",
+                    exc,
+                    target_url,
+                )
+
+        content = self.fetch_text(target_url)
         content_stripped = content.strip()
 
         # Case 1: Direct JSON response
@@ -113,6 +156,11 @@ class YCSpeedrunFetcher:
             value = payload.get(key)
             if isinstance(value, list):
                 return [item for item in value if isinstance(item, dict)]
+            if isinstance(value, dict):
+                for subkey in ("results", "items", "companies", "data"):
+                    subval = value.get(subkey)
+                    if isinstance(subval, list):
+                        return [item for item in subval if isinstance(item, dict)]
 
         # Check pageProps / nested structures
         props = payload.get("props", {})
@@ -123,5 +171,10 @@ class YCSpeedrunFetcher:
                     value = page_props.get(key)
                     if isinstance(value, list):
                         return [item for item in value if isinstance(item, dict)]
+                    if isinstance(value, dict):
+                        for subkey in ("results", "items", "companies", "data"):
+                            subval = value.get(subkey)
+                            if isinstance(subval, list):
+                                return [item for item in subval if isinstance(item, dict)]
 
         return []

@@ -82,3 +82,45 @@ def test_parse_speedrun_html_embedded_next_data() -> None:
     assert companies[0].stable_id == "yc-sr:nova-ai"
     assert companies[1].stable_id == "yc-sr:hyperspeed-data"
     assert all(c.source == "yc_speedrun" for c in companies)
+
+
+def test_parse_speedrun_api_paginated_dict() -> None:
+    payload = load_fixture("yc_speedrun_page.json")
+    api_response = {
+        "count": 2,
+        "next": None,
+        "previous": None,
+        "results": payload["companies"],
+    }
+    companies = parse_speedrun_payload(api_response)
+    assert len(companies) == 2
+    assert companies[0].stable_id == "yc-sr:nova-ai"
+    assert companies[1].stable_id == "yc-sr:hyperspeed-data"
+
+
+def test_parse_speedrun_html_nested_results_in_next_data() -> None:
+    payload = load_fixture("yc_speedrun_page.json")
+    embedded_data = json.dumps({
+        "props": {
+            "pageProps": {
+                "companies": {
+                    "count": 2,
+                    "results": payload["companies"],
+                }
+            }
+        }
+    })
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+      <head><title>Speedrun Companies</title></head>
+      <body>
+        <script id="__NEXT_DATA__" type="application/json">{embedded_data}</script>
+      </body>
+    </html>
+    """
+    companies = parse_speedrun_html(html)
+    assert len(companies) == 2
+    assert companies[0].stable_id == "yc-sr:nova-ai"
+    assert companies[1].stable_id == "yc-sr:hyperspeed-data"
+
