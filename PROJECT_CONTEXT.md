@@ -9,7 +9,7 @@ Build a long-running monitoring bot that detects early Y Combinator founder and 
 | Source        | Purpose (planned)                                      | Status              |
 |---------------|--------------------------------------------------------|---------------------|
 | YC Directory  | Track companies and founders listed on YC's directory  | **Implemented**     |
-| YC Speedrun   | Monitor Speedrun cohort and related launch signals     | Not implemented     |
+| YC Speedrun   | Monitor Speedrun cohort and related launch signals     | **Implemented**     |
 | X (Twitter)   | Watch posts and activity from founders and startups    | Not implemented     |
 | LinkedIn      | Monitor profile and company updates from founders      | Not implemented     |
 
@@ -17,10 +17,21 @@ Build a long-running monitoring bot that detects early Y Combinator founder and 
 
 - Fetches company records backing https://www.ycombinator.com/companies via the public Algolia search index used by that page.
 - Extracts company name, YC profile URL, description, batch, website, and industry/category when available.
-- Normalizes data into a shared company model with stable IDs (`yc-dir:{slug}`).
+- Normalizes data into a shared company model with stable IDs (`yc-dir:{slug}`) and source `yc_directory`.
 - Persists companies in SQLite with `first_detected_at` and `last_seen_at`.
 - Detects `NEW` vs `ALREADY_SEEN` companies and avoids duplicate rows on reruns.
 - Modules are split across fetch (`fetcher.py`), parse (`parser.py`), orchestration (`monitor.py`), and storage (`storage/sqlite.py`).
+
+### YC Speedrun monitor (implemented)
+
+- Monitors the official YC Speedrun directory/page (https://www.ycombinator.com/speedrun).
+- Retrieves Speedrun company information supporting direct JSON endpoints, embedded `__NEXT_DATA__` JSON blocks, and embedded script payloads.
+- Extracts company name, Speedrun profile URL, description, batch/cohort information, website, and industry/category.
+- Normalizes records into the shared `ParsedCompany` model with source identifier `yc_speedrun` and stable IDs (`yc-sr:{slug}`).
+- Persists companies into the SQLite `companies` table using the existing persistence architecture, preserving `first_detected_at` and updating `last_seen_at`.
+- Detects `NEW` vs `ALREADY_SEEN` companies and prevents duplicate records across runs.
+- Modules: `src/yc_launch_monitor/monitors/yc_speedrun/` (`fetcher.py`, `parser.py`, `monitor.py`).
+- Limitations: HTML structure variations may require parser adjustments; automated continuous polling and notifications are not yet connected.
 
 ## Required Slack integration
 
@@ -33,9 +44,9 @@ Build a long-running monitoring bot that detects early Y Combinator founder and 
 
 - Store seen entities, last-checked timestamps, and deduplication keys so the bot can run continuously without re-alerting on the same events.
 - Default local storage path: `./data/state.db` (configurable via `STATE_DB_PATH`).
-- YC Directory companies are stored in a `companies` SQLite table.
+- YC Directory and Speedrun companies are stored in a unified `companies` SQLite table.
 
-*Partially implemented — YC Directory company records only.*
+*Partially implemented — YC Directory and YC Speedrun company records.*
 
 ## Required early YC founder detection
 
@@ -59,8 +70,8 @@ Build a long-running monitoring bot that detects early Y Combinator founder and 
 
 ## Current project status
 
-**Step 2 — YC Directory monitor**
+**Step 3 — YC Speedrun monitor**
 
-- YC Directory fetch/parse/store pipeline is implemented with CLI support and fixture-based tests.
-- Slack, Pond, Speedrun, X, LinkedIn, AI classification, and scheduling are not implemented.
+- YC Directory and YC Speedrun fetch/parse/store pipelines are implemented with CLI support and fixture-based tests.
+- Slack, Pond, X (Twitter), LinkedIn, AI classification, and scheduling are not implemented.
 - The overall monitoring bot is **not complete**.

@@ -1,0 +1,21 @@
+{
+  "companies": [
+    {
+      "slug": "nova-ai",
+      "name": "Nova AI",
+      "one_liner": "Autonomous AI workflows for creative teams.",
+      "batch": "Speedrun Winter 2024",
+      "website": "https://nova-ai.example.com",
+      "industries": ["Artificial Intelligence", "Developer Tools"],
+      "profile_url": "https://www.ycombinator.com/speedrun/companies/nova-ai"
+    },
+    {
+      "slug": "hyperspeed-data",
+      "name": "HyperSpeed Data",
+      "description": "Real-time streaming analytical engine.",
+      "cohort": "Speedrun Spring 2024",
+      "website_url": "https://hyperspeed.example.com",
+      "category": "Infrastructure"
+    }
+  ]
+}

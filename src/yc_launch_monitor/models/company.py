@@ -8,7 +8,9 @@ from enum import Enum
 
 
 SOURCE_YC_DIRECTORY = "yc_directory"
+SOURCE_YC_SPEEDRUN = "yc_speedrun"
 YC_PROFILE_BASE_URL = "https://www.ycombinator.com/companies/"
+YC_SPEEDRUN_PROFILE_BASE_URL = "https://www.ycombinator.com/speedrun/companies/"
 
 
 class CompanyStatus(str, Enum):
@@ -29,6 +31,19 @@ def build_stable_id(slug: str) -> str:
 def build_profile_url(slug: str) -> str:
     """Build the canonical YC profile URL from a company slug."""
     return f"{YC_PROFILE_BASE_URL}{slug.strip()}"
+
+
+def build_speedrun_stable_id(slug: str) -> str:
+    """Return a stable identifier for a YC Speedrun company."""
+    normalized = slug.strip().lower()
+    if not normalized:
+        raise ValueError("slug is required to build a stable company id")
+    return f"yc-sr:{normalized}"
+
+
+def build_speedrun_profile_url(slug: str) -> str:
+    """Build the canonical Speedrun profile URL from a company slug."""
+    return f"{YC_SPEEDRUN_PROFILE_BASE_URL}{slug.strip()}"
 
 
 @dataclass(frozen=True, slots=True)

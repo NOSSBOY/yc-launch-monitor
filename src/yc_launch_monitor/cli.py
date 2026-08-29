@@ -8,6 +8,7 @@ import sys
 from yc_launch_monitor.config import load_settings
 from yc_launch_monitor.logging_config import configure_logging
 from yc_launch_monitor.monitors.yc_directory.monitor import YCDirectoryMonitor
+from yc_launch_monitor.monitors.yc_speedrun.monitor import YCSpeedrunMonitor
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -27,6 +28,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Action to perform.",
     )
 
+    yc_speedrun = subparsers.add_parser(
+        "yc-speedrun",
+        help="Run the YC Speedrun monitor (https://www.ycombinator.com/speedrun).",
+    )
+    yc_speedrun.add_argument(
+        "action",
+        choices=["run"],
+        help="Action to perform.",
+    )
+
     return parser
 
 
@@ -39,6 +50,17 @@ def main(argv: list[str] | None = None) -> int:
         result = YCDirectoryMonitor(settings).run()
         print(
             "YC Directory monitor summary: "
+            f"discovered={result.discovered} "
+            f"new={result.new} "
+            f"already_seen={result.already_seen} "
+            f"failed={result.failed}"
+        )
+        return 0
+
+    if args.command == "yc-speedrun" and args.action == "run":
+        result = YCSpeedrunMonitor(settings).run()
+        print(
+            "YC Speedrun monitor summary: "
             f"discovered={result.discovered} "
             f"new={result.new} "
             f"already_seen={result.already_seen} "
