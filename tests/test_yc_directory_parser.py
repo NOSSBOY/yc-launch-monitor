@@ -47,3 +47,27 @@ def test_parse_algolia_hit_requires_name() -> None:
 
     with pytest.raises(YCDirectoryParseError, match="missing name"):
         parse_algolia_hit(invalid_hit)
+
+
+def test_extract_algolia_config_from_window_algolia_opts() -> None:
+    from yc_launch_monitor.config import Settings
+    from yc_launch_monitor.monitors.yc_directory.fetcher import YCDirectoryFetcher
+
+    html = """
+    <html>
+      <head></head>
+      <body>
+        <script>
+          window.AlgoliaOpts = {"app":"45BWZJ1SGC","key":"NzllNTY5MzJiZGM2OTY2ZTQwMDEzOTNhYWZiZGRjODlhYzVkNjBmOGRjNzJiMWM4ZTU0ZDlhYTZjOTJiMjlhMWFuYWx5dGljc1RhZ3M9eWNkYyZyZXN0cmljdEluZGljZXM9WUNDb21wYW55X3Byb2R1Y3Rpb24lMkNZQ0NvbXBhbnlfQnlfTGF1bmNoX0RhdGVfcHJvZHVjdGlvbiZ0YWdGaWx0ZXJzPSU1QiUyMnljZGNfcHVibGljJTIyJTVE"};
+        </script>
+      </body>
+    </html>
+    """
+    settings = Settings()
+    fetcher = YCDirectoryFetcher(settings)
+    config = fetcher._extract_algolia_config(html)
+
+    assert config.app_id == "45BWZJ1SGC"
+    assert config.api_key.startswith("Nzll")
+    assert config.index_name == "YCCompany_production"
+

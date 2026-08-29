@@ -14,7 +14,10 @@ from yc_launch_monitor.config import Settings
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_USER_AGENT = "YCLaunchMonitor/0.1 (+https://github.com/)"
+DEFAULT_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 YCLaunchMonitor/0.1"
+)
 
 
 class YCDirectoryFetchError(RuntimeError):
@@ -138,21 +141,35 @@ class YCDirectoryFetcher:
             raise YCDirectoryFetchError(f"Failed to fetch {url}: {exc}") from exc
 
     def _extract_algolia_config(self, html: str) -> AlgoliaConfig:
+        opts_match = re.search(r'window\.AlgoliaOpts\s*=\s*(\{.*?\});', html, re.DOTALL)
+        if opts_match:
+            try:
+                opts = json.loads(opts_match.group(1))
+                app_id = opts.get("app")
+                api_key = opts.get("key")
+                if app_id and api_key:
+                    index_name = self._settings.yc_algolia_index
+                    return AlgoliaConfig(app_id=str(app_id), api_key=str(api_key), index_name=index_name)
+            except Exception:
+                pass
+
         app_id = self._find_first(
             html,
             patterns=[
-                r'"applicationId"\s*:\s*"([A-Z0-9]{8,16})"',
+                r'AlgoliaOpts\s*=\s*\{[^}]*"(?:app|applicationId)"\s*:\s*"([A-Z0-9]{8,16})"',
+                r'"(?:app|applicationId)"\s*:\s*"([A-Z0-9]{8,16})"',
                 r'"X-Algolia-Application-Id"\s*:\s*"([A-Z0-9]{8,16})"',
-                r'applicationId["\']\s*:\s*["\']([A-Z0-9]{8,16})["\']',
+                r'(?:app|applicationId)["\']\s*:\s*["\']([A-Z0-9]{8,16})["\']',
             ],
             label="Algolia application id",
         )
         api_key = self._find_first(
             html,
             patterns=[
-                r'"apiKey"\s*:\s*"([A-Za-z0-9+/=]{20,})"',
-                r'"searchApiKey"\s*:\s*"([A-Za-z0-9+/=]{20,})"',
-                r'apiKey["\']\s*:\s*["\']([A-Za-z0-9+/=]{20,})["\']',
+                r'AlgoliaOpts\s*=\s*\{[^}]*"(?:key|apiKey|searchApiKey)"\s*:\s*"([A-Za-z0-9+/=_%-]{20,})"',
+                r'"(?:key|apiKey|searchApiKey)"\s*:\s*"([A-Za-z0-9+/=_%-]{20,})"',
+                r'"searchApiKey"\s*:\s*"([A-Za-z0-9+/=_%-]{20,})"',
+                r'(?:key|apiKey|searchApiKey)["\']\s*:\s*["\']([A-Za-z0-9+/=_%-]{20,})["\']',
             ],
             label="Algolia search api key",
         )
@@ -175,3 +192,4 @@ class YCDirectoryFetcher:
             if match:
                 return match.group(1)
         raise YCDirectoryFetchError(f"Could not extract {label} from YC companies page")
+
