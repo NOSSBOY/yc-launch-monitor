@@ -14,6 +14,12 @@ DEFAULT_YC_COMPANIES_URL = "https://www.ycombinator.com/companies"
 DEFAULT_YC_SPEEDRUN_URL = "https://www.ycombinator.com/speedrun"
 DEFAULT_YC_ALGOLIA_INDEX = "YCCompany_production"
 DEFAULT_YC_ALGOLIA_HITS_PER_PAGE = 1000
+DEFAULT_X_SEARCH_QUERY = (
+    '("got into YC" OR "accepted into YC" OR "accepted to YC" OR "YC S26" OR '
+    '"YC W27" OR "YC W26" OR "YC S25" OR "backed by Y Combinator" OR '
+    '"Speedrun batch" OR "accepted to Speedrun") -is:retweet'
+)
+DEFAULT_X_MAX_RESULTS = 100
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +34,11 @@ class Settings:
     yc_algolia_index: str = DEFAULT_YC_ALGOLIA_INDEX
     yc_algolia_hits_per_page: int = DEFAULT_YC_ALGOLIA_HITS_PER_PAGE
     yc_speedrun_url: str = DEFAULT_YC_SPEEDRUN_URL
+    x_bearer_token: str | None = None
+    x_api_key: str | None = None
+    x_api_secret: str | None = None
+    x_search_query: str = DEFAULT_X_SEARCH_QUERY
+    x_max_results: int = DEFAULT_X_MAX_RESULTS
 
 
 def load_settings() -> Settings:
@@ -48,6 +59,11 @@ def load_settings() -> Settings:
         yc_algolia_hits_per_page=int(
             os.getenv("YC_ALGOLIA_HITS_PER_PAGE", str(DEFAULT_YC_ALGOLIA_HITS_PER_PAGE))
         ),
+        x_bearer_token=_optional_env("X_BEARER_TOKEN"),
+        x_api_key=_optional_env("X_API_KEY"),
+        x_api_secret=_optional_env("X_API_SECRET"),
+        x_search_query=os.getenv("X_SEARCH_QUERY", DEFAULT_X_SEARCH_QUERY),
+        x_max_results=int(os.getenv("X_MAX_RESULTS", str(DEFAULT_X_MAX_RESULTS))),
     )
 
 

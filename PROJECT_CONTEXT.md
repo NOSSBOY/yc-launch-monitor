@@ -10,7 +10,7 @@ Build a long-running monitoring bot that detects early Y Combinator founder and 
 |---------------|--------------------------------------------------------|---------------------|
 | YC Directory  | Track companies and founders listed on YC's directory  | **Implemented**     |
 | YC Speedrun   | Monitor Speedrun cohort and related launch signals     | **Implemented**     |
-| X (Twitter)   | Watch posts and activity from founders and startups    | Not implemented     |
+| X (Twitter)   | Watch posts and activity from founders and startups    | **Implemented**     |
 | LinkedIn      | Monitor profile and company updates from founders      | Not implemented     |
 
 ### YC Directory monitor (implemented)
@@ -33,6 +33,18 @@ Build a long-running monitoring bot that detects early Y Combinator founder and 
 - Modules: `src/yc_launch_monitor/monitors/yc_speedrun/` (`fetcher.py`, `parser.py`, `monitor.py`).
 - Limitations: HTML structure variations may require parser adjustments; automated continuous polling and notifications are not yet connected.
 
+### X (Twitter) monitor (implemented)
+
+- Monitors public X posts for founder and launch announcements mentioning YC or Speedrun acceptance (e.g. "got into YC", "accepted to YC S26", "backed by Y Combinator", "Speedrun cohort").
+- Modular architecture:
+  - Data collection: `fetcher.py` (queries X API v2 `/2/tweets/search/recent` via `X_BEARER_TOKEN`).
+  - Signal detection: `detector.py` (pattern matching for acceptance verbs, batch extraction, company name heuristics, and exclusion filtering).
+  - Post parsing: `parser.py` (normalizes tweets into `ParsedXSignal` with stable IDs `x:{post_id}` and source `x`).
+  - Company confirmation matching: `matcher.py` (queries SQLite `companies` store to verify if company already exists).
+  - Persistence & Orchestration: `monitor.py` & `storage/sqlite.py` (persists signals to SQLite `x_signals` table, prevents duplicate posts, preserves `detected_at`, and updates `last_seen_at`).
+- **Early-detection logic**: Classifies signals as `EARLY_YC_SIGNAL` (`is_early_signal=True`, `is_confirmed_yc=False`) when the post represents a founder announcement and the company is not yet in the official YC Directory or Speedrun tables. If the company is already stored, it is classified as a confirmed social signal (`is_confirmed_yc=True`, `is_early_signal=False`).
+- **API credentials & testing**: Live search requires `X_BEARER_TOKEN` in `.env`. Offline and automated testing runs via fixture data without live API access.
+
 ## Required Slack integration
 
 - Send alerts to a configured Slack channel when new or notable founder/launch signals are detected.
@@ -44,16 +56,16 @@ Build a long-running monitoring bot that detects early Y Combinator founder and 
 
 - Store seen entities, last-checked timestamps, and deduplication keys so the bot can run continuously without re-alerting on the same events.
 - Default local storage path: `./data/state.db` (configurable via `STATE_DB_PATH`).
-- YC Directory and Speedrun companies are stored in a unified `companies` SQLite table.
+- YC Directory and Speedrun companies are stored in `companies` table; social signals are stored in `x_signals` table.
 
-*Partially implemented — YC Directory and YC Speedrun company records.*
+*Partially implemented — YC Directory, YC Speedrun, and X signal records.*
 
 ## Required early YC founder detection
 
 - Identify signals that suggest a person or company is an early-stage YC founder or pre-launch YC-related entity before broad public awareness.
-- Detection logic (rules, heuristics, or AI-assisted classification) will be added in a later step.
+- X monitor implements early-detection matching against local directory state. Additional heuristics and AI classification will be expanded in later steps.
 
-*Not implemented yet.*
+*Partially implemented — X signal early detection logic.*
 
 ## Required Pond integration
 
@@ -70,8 +82,8 @@ Build a long-running monitoring bot that detects early Y Combinator founder and 
 
 ## Current project status
 
-**Step 3 — YC Speedrun monitor**
+**Step 4 — X (Twitter) monitor**
 
-- YC Directory and YC Speedrun fetch/parse/store pipelines are implemented with CLI support and fixture-based tests.
-- Slack, Pond, X (Twitter), LinkedIn, AI classification, and scheduling are not implemented.
+- YC Directory, YC Speedrun, and X (Twitter) fetch/parse/store pipelines are implemented with CLI support and fixture-based tests.
+- Slack, Pond, LinkedIn, AI classification, and scheduling are not implemented.
 - The overall monitoring bot is **not complete**.

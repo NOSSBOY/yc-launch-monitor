@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from yc_launch_monitor.models.company import CompanyRecord, CompanyStatus, ParsedCompany
+from yc_launch_monitor.models.x_signal import ParsedXSignal, XPostStatus, XSignalRecord
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,32 @@ CREATE TABLE IF NOT EXISTS companies (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_companies_profile_url
     ON companies(yc_profile_url);
+
+CREATE TABLE IF NOT EXISTS x_signals (
+    stable_id TEXT PRIMARY KEY,
+    post_id TEXT NOT NULL,
+    author_name TEXT,
+    author_username TEXT NOT NULL,
+    author_url TEXT,
+    company_name TEXT,
+    batch TEXT,
+    program TEXT NOT NULL,
+    post_text TEXT NOT NULL,
+    post_url TEXT NOT NULL,
+    source TEXT NOT NULL,
+    is_early_signal INTEGER NOT NULL,
+    is_confirmed_yc INTEGER NOT NULL,
+    signal_reason TEXT,
+    detected_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_x_signals_username
+    ON x_signals(author_username);
+CREATE INDEX IF NOT EXISTS idx_x_signals_company_name
+    ON x_signals(company_name);
+CREATE INDEX IF NOT EXISTS idx_x_signals_is_early
+    ON x_signals(is_early_signal);
 """
 
 
@@ -155,6 +182,144 @@ class CompanyStore:
         row = connection.execute("SELECT COUNT(*) AS count FROM companies").fetchone()
         return int(row["count"])
 
+    def find_company_by_name(self, connection: sqlite3.Connection, name: str) -> CompanyRecord | None:
+        """Look up a company in the store by name or slug."""
+        clean = name.strip()
+        if not clean:
+            return None
+
+        # Exact case-insensitive match on name
+        row = connection.execute(
+            "SELECT * FROM companies WHERE LOWER(TRIM(name)) = LOWER(?)",
+            (clean,),
+        ).fetchone()
+        if row is not None:
+            return self._row_to_record(row)
+
+        # Match against stable ID slug variants (yc-dir:{slug}, yc-sr:{slug})
+        slug_clean = clean.lower().replace(" ", "-")
+        row = connection.execute(
+            "SELECT * FROM companies WHERE stable_id IN (?, ?)",
+            (f"yc-dir:{slug_clean}", f"yc-sr:{slug_clean}"),
+        ).fetchone()
+        if row is not None:
+            return self._row_to_record(row)
+
+        return None
+
+    def get_x_signal_by_stable_id(
+        self, connection: sqlite3.Connection, stable_id: str
+    ) -> XSignalRecord | None:
+        """Fetch an X signal record by stable identifier."""
+        row = connection.execute(
+            "SELECT * FROM x_signals WHERE stable_id = ?",
+            (stable_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return self._row_to_x_signal_record(row)
+
+    def save_x_signal(
+        self,
+        connection: sqlite3.Connection,
+        signal: ParsedXSignal,
+        seen_at: datetime | None = None,
+    ) -> XPostStatus:
+        """
+        Insert a new X signal or update last_seen_at for an existing post.
+
+        Preserves the original detected_at on subsequent encounters.
+        """
+        seen_at = seen_at or signal.detected_at or utc_now()
+        existing = self.get_x_signal_by_stable_id(connection, signal.stable_id)
+
+        if existing is None:
+            connection.execute(
+                """
+                INSERT INTO x_signals (
+                    stable_id,
+                    post_id,
+                    author_name,
+                    author_username,
+                    author_url,
+                    company_name,
+                    batch,
+                    program,
+                    post_text,
+                    post_url,
+                    source,
+                    is_early_signal,
+                    is_confirmed_yc,
+                    signal_reason,
+                    detected_at,
+                    last_seen_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    signal.stable_id,
+                    signal.post_id,
+                    signal.author_name,
+                    signal.author_username,
+                    signal.author_url,
+                    signal.company_name,
+                    signal.batch,
+                    signal.program,
+                    signal.post_text,
+                    signal.post_url,
+                    signal.source,
+                    1 if signal.is_early_signal else 0,
+                    1 if signal.is_confirmed_yc else 0,
+                    signal.signal_reason,
+                    format_timestamp(seen_at),
+                    format_timestamp(seen_at),
+                ),
+            )
+            logger.debug("Inserted new X signal: %s", signal.stable_id)
+            return XPostStatus.NEW
+
+        connection.execute(
+            """
+            UPDATE x_signals
+            SET author_name = ?,
+                author_username = ?,
+                author_url = ?,
+                company_name = ?,
+                batch = ?,
+                program = ?,
+                post_text = ?,
+                post_url = ?,
+                source = ?,
+                is_early_signal = ?,
+                is_confirmed_yc = ?,
+                signal_reason = ?,
+                last_seen_at = ?
+            WHERE stable_id = ?
+            """,
+            (
+                signal.author_name,
+                signal.author_username,
+                signal.author_url,
+                signal.company_name,
+                signal.batch,
+                signal.program,
+                signal.post_text,
+                signal.post_url,
+                signal.source,
+                1 if signal.is_early_signal else 0,
+                1 if signal.is_confirmed_yc else 0,
+                signal.signal_reason,
+                format_timestamp(seen_at),
+                signal.stable_id,
+            ),
+        )
+        logger.debug("Updated existing X signal: %s", signal.stable_id)
+        return XPostStatus.ALREADY_SEEN
+
+    def count_x_signals(self, connection: sqlite3.Connection) -> int:
+        """Return the total number of stored X signals."""
+        row = connection.execute("SELECT COUNT(*) AS count FROM x_signals").fetchone()
+        return int(row["count"])
+
     @staticmethod
     def _row_to_record(row: sqlite3.Row) -> CompanyRecord:
         return CompanyRecord(
@@ -169,3 +334,25 @@ class CompanyStore:
             first_detected_at=parse_timestamp(row["first_detected_at"]),
             last_seen_at=parse_timestamp(row["last_seen_at"]),
         )
+
+    @staticmethod
+    def _row_to_x_signal_record(row: sqlite3.Row) -> XSignalRecord:
+        return XSignalRecord(
+            stable_id=row["stable_id"],
+            post_id=row["post_id"],
+            author_username=row["author_username"],
+            post_text=row["post_text"],
+            post_url=row["post_url"],
+            author_name=row["author_name"],
+            author_url=row["author_url"],
+            company_name=row["company_name"],
+            batch=row["batch"],
+            program=row["program"],
+            source=row["source"],
+            is_early_signal=bool(row["is_early_signal"]),
+            is_confirmed_yc=bool(row["is_confirmed_yc"]),
+            signal_reason=row["signal_reason"],
+            detected_at=parse_timestamp(row["detected_at"]),
+            last_seen_at=parse_timestamp(row["last_seen_at"]),
+        )
+

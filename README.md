@@ -2,7 +2,7 @@
 
 A long-running Python monitoring bot that watches Y Combinator-related sources for early founder and launch activity, persists state across runs, and will eventually send alerts via Slack and integrate with Pond.
 
-**Status:** Step 3 — YC Directory and YC Speedrun monitors implemented. Other sources and integrations are not built yet.
+**Status:** Step 4 — YC Directory, YC Speedrun, and X (Twitter) monitors implemented. Other sources and integrations are not built yet.
 
 ## Project layout
 
@@ -11,6 +11,7 @@ src/yc_launch_monitor/
   monitors/
     yc_directory/            YC Directory fetch, parse, and monitor logic
     yc_speedrun/             YC Speedrun fetch, parse, and monitor logic
+    x/                       X (Twitter) search, signal detection, and early matching
   models/                    Shared domain models
   storage/                   SQLite persistence
   cli.py                     Command-line entry point
@@ -84,6 +85,24 @@ On each run it prints a summary:
 YC Speedrun monitor summary: discovered=... new=... already_seen=... failed=...
 ```
 
+### Running the X (Twitter) monitor
+
+The X monitor searches recent public posts for founder acceptance/launch language (e.g., "got into YC", "accepted to YC S26", "backed by Y Combinator", "Speedrun cohort"). It automatically checks whether the detected company is already officially confirmed in the local SQLite directory; unconfirmed entities are flagged as `EARLY_YC_SIGNAL`.
+
+```bash
+# Using the module entry point
+python -m yc_launch_monitor x run
+
+# Or, after editable install
+yc-launch-monitor x run
+```
+
+On each run it prints a summary:
+
+```
+X monitor summary: discovered=... relevant_signals=... early_signals=... already_seen=... failed=...
+```
+
 ### Optional configuration
 
 Optional overrides in `.env`:
@@ -97,11 +116,17 @@ YC_ALGOLIA_INDEX=YCCompany_production
 
 # YC Speedrun
 YC_SPEEDRUN_URL=https://www.ycombinator.com/speedrun
+
+# X (Twitter) — Required for live API search
+X_BEARER_TOKEN=
+X_API_KEY=
+X_API_SECRET=
+X_SEARCH_QUERY=
 ```
 
 ## Running tests
 
-Tests use local JSON fixtures and do **not** call live websites.
+Tests use local JSON fixtures and do **not** call live websites or external APIs.
 
 ```bash
 pytest
@@ -111,7 +136,6 @@ uv run --extra dev pytest
 
 ## Not implemented yet
 
-- X (Twitter) monitoring
 - LinkedIn monitoring
 - Slack alerts
 - Pond integration
