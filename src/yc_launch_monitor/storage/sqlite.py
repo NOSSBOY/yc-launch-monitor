@@ -91,6 +91,15 @@ CREATE INDEX IF NOT EXISTS idx_linkedin_signals_classification
     ON linkedin_signals(classification);
 CREATE INDEX IF NOT EXISTS idx_linkedin_signals_is_early
     ON linkedin_signals(is_early_signal);
+
+CREATE TABLE IF NOT EXISTS slack_alerts_sent (
+    stable_id TEXT PRIMARY KEY,
+    alert_type TEXT NOT NULL,
+    sent_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_slack_alerts_sent_at
+    ON slack_alerts_sent(sent_at);
 """
 
 
@@ -484,6 +493,44 @@ class CompanyStore:
     def count_linkedin_signals(self, connection: sqlite3.Connection) -> int:
         """Return the total number of stored LinkedIn signals."""
         row = connection.execute("SELECT COUNT(*) AS count FROM linkedin_signals").fetchone()
+        return int(row["count"])
+
+    def has_slack_alert_been_sent(
+        self,
+        connection: sqlite3.Connection,
+        stable_id: str,
+    ) -> bool:
+        """Return True if a Slack alert has already been sent for the given entity stable_id."""
+        row = connection.execute(
+            "SELECT 1 FROM slack_alerts_sent WHERE stable_id = ?",
+            (stable_id,),
+        ).fetchone()
+        return row is not None
+
+    def mark_slack_alert_sent(
+        self,
+        connection: sqlite3.Connection,
+        stable_id: str,
+        alert_type: str,
+        sent_at: datetime | None = None,
+    ) -> None:
+        """Record that a Slack alert was sent for the given entity stable_id."""
+        timestamp = sent_at or utc_now()
+        connection.execute(
+            """
+            INSERT OR REPLACE INTO slack_alerts_sent (
+                stable_id,
+                alert_type,
+                sent_at
+            ) VALUES (?, ?, ?)
+            """,
+            (stable_id, alert_type, format_timestamp(timestamp)),
+        )
+        logger.debug("Recorded Slack alert sent for %s (%s)", stable_id, alert_type)
+
+    def count_slack_alerts_sent(self, connection: sqlite3.Connection) -> int:
+        """Return total count of recorded Slack alerts."""
+        row = connection.execute("SELECT COUNT(*) AS count FROM slack_alerts_sent").fetchone()
         return int(row["count"])
 
     @staticmethod

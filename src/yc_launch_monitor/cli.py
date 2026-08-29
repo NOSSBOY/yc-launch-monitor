@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import sys
 
+from yc_launch_monitor.alerts.slack import SlackNotifier
 from yc_launch_monitor.config import load_settings
 from yc_launch_monitor.logging_config import configure_logging
 from yc_launch_monitor.monitors.linkedin.monitor import LinkedInMonitor
@@ -84,6 +85,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run a single monitoring cycle across all sources and exit.",
     )
 
+    slack_parser = subparsers.add_parser(
+        "slack",
+        help="Test or manage Slack webhook alert integration.",
+    )
+    slack_parser.add_argument(
+        "action",
+        choices=["test"],
+        help="Action to perform.",
+    )
+
     return parser
 
 
@@ -155,6 +166,24 @@ def main(argv: list[str] | None = None) -> int:
             max_cycles=1 if args.once else None,
         )
         return 0
+
+    if args.command == "slack" and args.action == "test":
+        notifier = SlackNotifier(settings)
+        if not notifier.is_configured:
+            print(
+                "Error: SLACK_WEBHOOK_URL is not configured. "
+                "Set SLACK_WEBHOOK_URL in environment variables or .env to enable alerts.",
+                file=sys.stderr,
+            )
+            return 1
+
+        success = notifier.send_test_message()
+        if success:
+            print("YC Launch Monitor Slack integration is working. Test alert sent successfully.")
+            return 0
+        else:
+            print("Error: Failed to send Slack test alert. Check logs for details.", file=sys.stderr)
+            return 1
 
     return 1
 

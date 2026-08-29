@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Callable
 
+from yc_launch_monitor.alerts.slack import SlackNotifier
 from yc_launch_monitor.config import Settings
 from yc_launch_monitor.monitors.linkedin.monitor import LinkedInMonitor, LinkedInMonitorResult
 from yc_launch_monitor.monitors.x.monitor import XMonitor, XMonitorResult
@@ -57,19 +58,23 @@ class MonitorScheduler:
         yc_speedrun_monitor: YCSpeedrunMonitor | None = None,
         x_monitor: XMonitor | None = None,
         linkedin_monitor: LinkedInMonitor | None = None,
+        notifier: SlackNotifier | None = None,
         sleep_fn: Callable[[float], None] | None = None,
     ) -> None:
         self._settings = settings
         self._store = store or CompanyStore(settings.state_db_path)
+        self._notifier = notifier or SlackNotifier(settings, store=self._store)
         self._yc_directory_monitor = yc_directory_monitor or YCDirectoryMonitor(
-            settings, store=self._store
+            settings, store=self._store, notifier=self._notifier
         )
         self._yc_speedrun_monitor = yc_speedrun_monitor or YCSpeedrunMonitor(
-            settings, store=self._store
+            settings, store=self._store, notifier=self._notifier
         )
-        self._x_monitor = x_monitor or XMonitor(settings, store=self._store)
+        self._x_monitor = x_monitor or XMonitor(
+            settings, store=self._store, notifier=self._notifier
+        )
         self._linkedin_monitor = linkedin_monitor or LinkedInMonitor(
-            settings, store=self._store
+            settings, store=self._store, notifier=self._notifier
         )
         self._sleep_fn = sleep_fn or time.sleep
         self._running = False

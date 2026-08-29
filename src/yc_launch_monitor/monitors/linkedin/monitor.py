@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 from yc_launch_monitor.config import Settings
 from yc_launch_monitor.models.linkedin_signal import (
@@ -18,6 +18,9 @@ from yc_launch_monitor.monitors.linkedin.fetcher import LinkedInFetcher
 from yc_launch_monitor.monitors.linkedin.matcher import LinkedInCompanyConfirmationMatcher
 from yc_launch_monitor.monitors.linkedin.parser import LinkedInParseError, parse_linkedin_post
 from yc_launch_monitor.storage.sqlite import CompanyStore, utc_now
+
+if TYPE_CHECKING:
+    from yc_launch_monitor.alerts.slack import SlackNotifier
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +51,7 @@ class LinkedInMonitor:
         detector: LinkedInSignalDetector | None = None,
         matcher: LinkedInCompanyConfirmationMatcher | None = None,
         fetch_posts: FetchLinkedInPostsFn | None = None,
+        notifier: SlackNotifier | None = None,
     ) -> None:
         self._settings = settings
         self._store = store or CompanyStore(settings.state_db_path)
@@ -55,6 +59,7 @@ class LinkedInMonitor:
         self._detector = detector or LinkedInSignalDetector()
         self._matcher = matcher or LinkedInCompanyConfirmationMatcher(self._store)
         self._fetch_posts = fetch_posts
+        self._notifier = notifier
 
     def run(self, seen_at: datetime | None = None) -> LinkedInMonitorResult:
         """Fetch recent LinkedIn posts, detect signals, match against directory, and persist."""
@@ -126,6 +131,12 @@ class LinkedInMonitor:
                 )
                 if status is LinkedInPostStatus.ALREADY_SEEN:
                     already_seen_count += 1
+                elif status is LinkedInPostStatus.NEW:
+                    if self._notifier is not None:
+                        try:
+                            self._notifier.send_linkedin_signal_alert(evaluated_signal, connection=connection)
+                        except Exception as exc:
+                            logger.error("Failed to send Slack alert for LinkedIn signal %s: %s", evaluated_signal.stable_id, exc)
 
             connection.commit()
         except Exception:
@@ -185,6 +196,12 @@ class LinkedInMonitor:
                 )
                 if status is LinkedInPostStatus.ALREADY_SEEN:
                     already_seen_count += 1
+                elif status is LinkedInPostStatus.NEW:
+                    if self._notifier is not None:
+                        try:
+                            self._notifier.send_linkedin_signal_alert(evaluated_signal, connection=connection)
+                        except Exception as exc:
+                            logger.error("Failed to send Slack alert for LinkedIn signal %s: %s", evaluated_signal.stable_id, exc)
             connection.commit()
         except Exception:
             connection.rollback()

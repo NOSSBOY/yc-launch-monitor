@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 from yc_launch_monitor.config import Settings
 from yc_launch_monitor.models.x_signal import ParsedXSignal, XPostStatus
@@ -14,6 +14,9 @@ from yc_launch_monitor.monitors.x.fetcher import XFetcher
 from yc_launch_monitor.monitors.x.matcher import CompanyConfirmationMatcher
 from yc_launch_monitor.monitors.x.parser import XParseError, parse_x_post
 from yc_launch_monitor.storage.sqlite import CompanyStore, utc_now
+
+if TYPE_CHECKING:
+    from yc_launch_monitor.alerts.slack import SlackNotifier
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +45,7 @@ class XMonitor:
         detector: XSignalDetector | None = None,
         matcher: CompanyConfirmationMatcher | None = None,
         fetch_posts: FetchPostsFn | None = None,
+        notifier: SlackNotifier | None = None,
     ) -> None:
         self._settings = settings
         self._store = store or CompanyStore(settings.state_db_path)
@@ -49,6 +53,7 @@ class XMonitor:
         self._detector = detector or XSignalDetector()
         self._matcher = matcher or CompanyConfirmationMatcher(self._store)
         self._fetch_posts = fetch_posts
+        self._notifier = notifier
 
     def run(self, seen_at: datetime | None = None) -> XMonitorResult:
         """Fetch recent X posts, detect signals, match against directory, and persist."""
@@ -103,6 +108,12 @@ class XMonitor:
                 status = self._store.save_x_signal(connection, evaluated_signal, seen_at=seen_at)
                 if status is XPostStatus.ALREADY_SEEN:
                     already_seen_count += 1
+                elif status is XPostStatus.NEW:
+                    if self._notifier is not None:
+                        try:
+                            self._notifier.send_x_signal_alert(evaluated_signal, connection=connection)
+                        except Exception as exc:
+                            logger.error("Failed to send Slack alert for X signal %s: %s", evaluated_signal.stable_id, exc)
 
             connection.commit()
         except Exception:
@@ -149,6 +160,12 @@ class XMonitor:
                 status = self._store.save_x_signal(connection, evaluated_signal, seen_at=seen_at)
                 if status is XPostStatus.ALREADY_SEEN:
                     already_seen_count += 1
+                elif status is XPostStatus.NEW:
+                    if self._notifier is not None:
+                        try:
+                            self._notifier.send_x_signal_alert(evaluated_signal, connection=connection)
+                        except Exception as exc:
+                            logger.error("Failed to send Slack alert for X signal %s: %s", evaluated_signal.stable_id, exc)
             connection.commit()
         except Exception:
             connection.rollback()

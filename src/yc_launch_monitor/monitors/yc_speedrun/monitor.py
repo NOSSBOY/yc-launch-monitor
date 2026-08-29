@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
 from yc_launch_monitor.config import Settings
 from yc_launch_monitor.models.company import CompanyStatus, ParsedCompany
@@ -15,6 +15,9 @@ from yc_launch_monitor.monitors.yc_speedrun.parser import (
     parse_speedrun_item,
 )
 from yc_launch_monitor.storage.sqlite import CompanyStore, utc_now
+
+if TYPE_CHECKING:
+    from yc_launch_monitor.alerts.slack import SlackNotifier
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +33,13 @@ class YCSpeedrunMonitor:
         store: CompanyStore | None = None,
         fetcher: YCSpeedrunFetcher | None = None,
         fetch_items: FetchItemsFn | None = None,
+        notifier: SlackNotifier | None = None,
     ) -> None:
         self._settings = settings
         self._store = store or CompanyStore(settings.state_db_path)
         self._fetcher = fetcher or YCSpeedrunFetcher(settings)
         self._fetch_items = fetch_items
+        self._notifier = notifier
 
     def run(self, seen_at: datetime | None = None) -> MonitorResult:
         """Fetch Speedrun companies, persist them, and return run statistics."""
@@ -64,6 +69,11 @@ class YCSpeedrunMonitor:
                         company.name,
                         company.stable_id,
                     )
+                    if self._notifier is not None:
+                        try:
+                            self._notifier.send_company_alert(company, connection=connection)
+                        except Exception as exc:
+                            logger.error("Failed to send Slack alert for %s: %s", company.name, exc)
                 else:
                     already_seen_count += 1
                     logger.debug(
@@ -111,6 +121,11 @@ class YCSpeedrunMonitor:
                 status = self._store.save_company(connection, company, seen_at=seen_at)
                 if status is CompanyStatus.NEW:
                     new_count += 1
+                    if self._notifier is not None:
+                        try:
+                            self._notifier.send_company_alert(company, connection=connection)
+                        except Exception as exc:
+                            logger.error("Failed to send Slack alert for %s: %s", company.name, exc)
                 else:
                     already_seen_count += 1
             connection.commit()

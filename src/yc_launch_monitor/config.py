@@ -50,6 +50,7 @@ class Settings:
     linkedin_client_secret: str | None = None
     linkedin_search_query: str = DEFAULT_LINKEDIN_SEARCH_QUERY
     monitor_interval_seconds: int = DEFAULT_MONITOR_INTERVAL_SECONDS
+    slack_webhook_url: str | None = None
 
 
 def load_settings() -> Settings:
@@ -82,6 +83,7 @@ def load_settings() -> Settings:
         monitor_interval_seconds=int(
             os.getenv("MONITOR_INTERVAL_SECONDS", str(DEFAULT_MONITOR_INTERVAL_SECONDS))
         ),
+        slack_webhook_url=_optional_env("SLACK_WEBHOOK_URL"),
     )
 
 
