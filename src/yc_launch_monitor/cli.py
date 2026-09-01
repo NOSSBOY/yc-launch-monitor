@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+from pathlib import Path
 
 from yc_launch_monitor.alerts.slack import SlackNotifier
 from yc_launch_monitor.config import load_settings
@@ -48,8 +50,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     x_parser.add_argument(
         "action",
-        choices=["run"],
-        help="Action to perform.",
+        choices=["run", "replay-fixtures"],
+        help="run or replay-fixtures",
     )
 
     linkedin_parser = subparsers.add_parser(
@@ -122,6 +124,18 @@ def main(argv: list[str] | None = None) -> int:
             f"new={result.new} "
             f"already_seen={result.already_seen} "
             f"failed={result.failed}"
+        )
+        return 0
+
+    
+    if args.command == "x" and args.action == "replay-fixtures":
+        fixture_path = Path("tests/fixtures/x_posts.json")
+        payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+        posts = payload.get("posts", [])
+        result = XMonitor(settings, notifier=SlackNotifier(settings), fetch_posts=lambda: posts).run()
+        print(
+            "X fixture replay summary: "
+            f"discovered={result.discovered} relevant={result.relevant_signals} early={result.early_signals} already_seen={result.already_seen}"
         )
         return 0
 

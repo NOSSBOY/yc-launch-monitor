@@ -14,7 +14,7 @@ from yc_launch_monitor.models.linkedin_signal import (
     ParsedLinkedInSignal,
 )
 from yc_launch_monitor.monitors.linkedin.detector import LinkedInSignalDetector
-from yc_launch_monitor.monitors.linkedin.fetcher import LinkedInFetcher
+from yc_launch_monitor.monitors.linkedin.fetcher import LinkedInFetchError, LinkedInFetcher
 from yc_launch_monitor.monitors.linkedin.matcher import LinkedInCompanyConfirmationMatcher
 from yc_launch_monitor.monitors.linkedin.parser import LinkedInParseError, parse_linkedin_post
 from yc_launch_monitor.storage.sqlite import CompanyStore, utc_now
@@ -64,11 +64,15 @@ class LinkedInMonitor:
     def run(self, seen_at: datetime | None = None) -> LinkedInMonitorResult:
         """Fetch recent LinkedIn posts, detect signals, match against directory, and persist."""
         seen_at = seen_at or utc_now()
-        raw_posts = (
-            self._fetch_posts()
-            if self._fetch_posts is not None
-            else self._fetcher.fetch_recent_posts()
-        )
+        try:
+            raw_posts = (
+                self._fetch_posts()
+                if self._fetch_posts is not None
+                else self._fetcher.fetch_recent_posts()
+            )
+        except LinkedInFetchError as exc:
+            logger.warning('LinkedIn monitor skipped this cycle: %s', exc)
+            return LinkedInMonitorResult(0, 0, 0, 0, 0, 0, 0)
 
         discovered = len(raw_posts)
         relevant_count = 0

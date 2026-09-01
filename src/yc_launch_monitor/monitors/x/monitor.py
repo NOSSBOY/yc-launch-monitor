@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Callable
 from yc_launch_monitor.config import Settings
 from yc_launch_monitor.models.x_signal import ParsedXSignal, XPostStatus
 from yc_launch_monitor.monitors.x.detector import XSignalDetector
-from yc_launch_monitor.monitors.x.fetcher import XFetcher
+from yc_launch_monitor.monitors.x.fetcher import XFetchError, XFetcher
 from yc_launch_monitor.monitors.x.matcher import CompanyConfirmationMatcher
 from yc_launch_monitor.monitors.x.parser import XParseError, parse_x_post
 from yc_launch_monitor.storage.sqlite import CompanyStore, utc_now
@@ -58,7 +58,11 @@ class XMonitor:
     def run(self, seen_at: datetime | None = None) -> XMonitorResult:
         """Fetch recent X posts, detect signals, match against directory, and persist."""
         seen_at = seen_at or utc_now()
-        raw_posts = self._fetch_posts() if self._fetch_posts is not None else self._fetcher.search_recent_posts()
+        try:
+            raw_posts = self._fetch_posts() if self._fetch_posts is not None else self._fetcher.search_recent_posts()
+        except XFetchError as exc:
+            logger.warning('X monitor skipped this cycle (no live API): %s', exc)
+            return XMonitorResult(0, 0, 0, 0, 0)
 
         discovered = len(raw_posts)
         relevant_count = 0
