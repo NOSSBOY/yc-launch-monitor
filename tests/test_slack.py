@@ -246,10 +246,10 @@ def test_scheduler_continues_when_slack_fails(settings: Settings) -> None:
 
 
 def test_cli_slack_test_unconfigured(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    monkeypatch.delenv("SLACK_WEBHOOK_URL", raising=False)
+    monkeypatch.setenv("SLACK_WEBHOOK_URL", "")
     monkeypatch.setenv("STATE_DB_PATH", str(tmp_path / "state.db"))
-
-    exit_code = main(["slack", "test"])
+    with patch("dotenv.load_dotenv"):
+        exit_code = main(["slack", "test"])
     assert exit_code == 1
 
 
@@ -257,6 +257,7 @@ def test_cli_slack_test_success(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
     monkeypatch.setenv("SLACK_WEBHOOK_URL", "https://hooks.slack.com/services/T00/B00/TEST")
     monkeypatch.setenv("STATE_DB_PATH", str(tmp_path / "state.db"))
 
-    with patch.object(SlackNotifier, "send_test_message", return_value=True):
+    with patch("dotenv.load_dotenv"), patch.object(SlackNotifier, "send_test_message", return_value=True):
         exit_code = main(["slack", "test"])
         assert exit_code == 0
+
